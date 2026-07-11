@@ -36,9 +36,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          mui: ['@mui/material', '@mui/icons-material'],
-          vendor: ['react', 'react-dom', 'framer-motion'],
+        manualChunks: (id: string) => {
+          if (id.includes('@mui/material') || id.includes('@mui/icons-material')) {
+            return 'mui';
+          }
+          if (id.includes('react') || id.includes('framer-motion')) {
+            return 'vendor';
+          }
         },
       },
     },

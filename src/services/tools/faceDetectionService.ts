@@ -4,37 +4,54 @@
  * It employs a tiling strategy to improve detection of both large and small faces.
  */
 
-import * as tf from '@tensorflow/tfjs';
-import * as faceDetection from '@tensorflow-models/face-detection';
 import type { BoundingBox, DetectedFace } from '@/types/tools/anonymizer.ts';
 
 /**
- * A singleton instance of the MediaPipeFaceDetector.
- * It is loaded lazily on the first call to `detectFaces`.
- * @type {faceDetection.FaceDetector | null}
+ * Type for the FaceDetection class from MediaPipe
  */
-let detector: faceDetection.FaceDetector | null = null;
+type FaceDetectionType = any;
 
 /**
- * Loads and initializes the MediaPipeFaceDetector model from TensorFlow.js.
+ * A singleton instance of the FaceDetection from MediaPipe.
+ * It is loaded lazily on the first call to `detectFaces`.
+ */
+let faceDetectionInstance: FaceDetectionType | null = null;
+let FaceDetectionClass: FaceDetectionType | null = null;
+
+/**
+ * Loads and initializes the FaceDetection model from MediaPipe.
  * This function is idempotent; it ensures the model is loaded only once.
- * @returns {Promise<faceDetection.FaceDetector>} A promise that resolves with the initialized detector instance.
+ * @returns {Promise<FaceDetectionType>} A promise that resolves with the initialized FaceDetection instance.
  * @private
  */
 const loadModel = async () => {
-  await tf.ready();
+  if (!faceDetectionInstance) {
+    // Dynamically import the module to work around bundling issues
+    if (!FaceDetectionClass) {
+      // The UMD bundle exposes FaceDetection as a global
+      const module = await import('@mediapipe/face_detection');
+      // Try to get FaceDetection from the module
+      FaceDetectionClass =
+        (module as any).FaceDetection || (globalThis as any).FaceDetection || module.default;
+    }
 
-  if (!detector) {
-    const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
-    const detectorConfig: faceDetection.MediaPipeFaceDetectorTfjsModelConfig = {
-      runtime: 'tfjs',
-      maxFaces: 100,
-      modelType: 'full',
-    };
+    if (!FaceDetectionClass) {
+      throw new Error('Failed to load FaceDetection class from @mediapipe/face_detection');
+    }
 
-    detector = await faceDetection.createDetector(model, detectorConfig);
+    faceDetectionInstance = new FaceDetectionClass({
+      locateFile: (file: string) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`;
+      },
+    });
+    faceDetectionInstance.setOptions({
+      selfieMode: false,
+      model: 'short',
+      minDetectionConfidence: 0.5,
+    });
+    await faceDetectionInstance.initialize();
   }
-  return detector;
+  return faceDetectionInstance;
 };
 
 /**
@@ -83,47 +100,80 @@ const analyzeCanvas = async (
   scaleX: number,
   scaleY: number
 ): Promise<DetectedFace[]> => {
-  if (!detector) return [];
-
-  const predictions = await detector.estimateFaces(canvas);
+  const detector = await loadModel();
   const faces: DetectedFace[] = [];
 
-  const thumbCanvas = document.createElement('canvas');
-  const thumbCtx = thumbCanvas.getContext('2d');
-  if (!thumbCtx) return [];
+  return new Promise((resolve) => {
+    let resultReceived = false;
 
-  for (const element of predictions) {
-    const { xMin, yMin, width: faceW, height: faceH } = element.box;
+    // Set up the results callback
+    const resultsListener = (results: any) => {
+      resultReceived = true;
 
-    // Reparametrize to original image coordinates
-    const rawX = xMin * scaleX + offsetX;
-    const rawY = yMin * scaleY + offsetY;
-    const rawW = faceW * scaleX;
-    const rawH = faceH * scaleY;
+      const thumbCanvas = document.createElement('canvas');
+      const thumbCtx = thumbCanvas.getContext('2d');
+      if (!thumbCtx) {
+        resolve([]);
+        return;
+      }
 
-    // Add margin to capture more of the face and avoid tight cropping, especially for smaller faces
-    const margin = rawW * 0.2;
-    const x = Math.max(0, rawX - margin);
-    const y = Math.max(0, rawY - margin);
-    const w = Math.min(originalImage.naturalWidth - x, rawW + margin * 2);
-    const h = Math.min(originalImage.naturalHeight - y, rawH + margin * 2);
+      if (results.detections && Array.isArray(results.detections)) {
+        for (const detection of results.detections) {
+          const { xCenter, yCenter, width: faceW, height: faceH } = detection.boundingBox;
 
-    // Ignore false detections
-    if (w < 10 || h < 10) continue;
+          // Convert normalized center to pixel coordinates
+          const xMin = (xCenter - faceW / 2) * canvas.width;
+          const yMin = (yCenter - faceH / 2) * canvas.height;
 
-    thumbCanvas.width = w;
-    thumbCanvas.height = h;
-    thumbCtx.drawImage(originalImage, x, y, w, h, 0, 0, w, h);
+          // Reparametrize to original image coordinates
+          const rawX = xMin * scaleX + offsetX;
+          const rawY = yMin * scaleY + offsetY;
+          const rawW = faceW * canvas.width * scaleX;
+          const rawH = faceH * canvas.height * scaleY;
 
-    faces.push({
-      id: `face-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-      box: { x, y, width: w, height: h },
-      isBlurred: true,
-      thumbnailDataUrl: thumbCanvas.toDataURL('image/jpeg', 0.8),
+          // Add margin to capture more of the face and avoid tight cropping, especially for smaller faces
+          const margin = rawW * 0.2;
+          const x = Math.max(0, rawX - margin);
+          const y = Math.max(0, rawY - margin);
+          const w = Math.min(originalImage.naturalWidth - x, rawW + margin * 2);
+          const h = Math.min(originalImage.naturalHeight - y, rawH + margin * 2);
+
+          // Ignore false detections
+          if (w < 10 || h < 10) continue;
+
+          thumbCanvas.width = w;
+          thumbCanvas.height = h;
+          thumbCtx.drawImage(originalImage, x, y, w, h, 0, 0, w, h);
+
+          faces.push({
+            id: `face-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            box: { x, y, width: w, height: h },
+            isBlurred: true,
+            thumbnailDataUrl: thumbCanvas.toDataURL('image/jpeg', 0.8),
+          });
+        }
+      }
+
+      // Remove the listener after processing
+      detector.onResults(() => {});
+      resolve(faces);
+    };
+
+    detector.onResults(resultsListener);
+
+    // Send the image for processing
+    detector.send({ image: canvas }).catch(() => {
+      resolve([]);
     });
-  }
 
-  return faces;
+    // Add a timeout to ensure we resolve even if no results come back
+    setTimeout(() => {
+      if (!resultReceived) {
+        detector.onResults(() => {});
+        resolve(faces);
+      }
+    }, 100);
+  });
 };
 
 /**
