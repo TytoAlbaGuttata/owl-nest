@@ -23,6 +23,7 @@
     "@fontsource/roboto": "^5.2.9",
     "@fontsource/rubik": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
+    "@mediapipe/face_detection": "^0.4.1657300184",
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
     "@react-three/drei": "^10.7.7",
