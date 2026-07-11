@@ -322,6 +322,31 @@
     "wip": {
       "title": "Zone en travaux",
       "subtitle": "Accès restreint. Le déploiement est en cours."
+    },
+    "dashboard": {
+      "title": "Tableau de bord",
+      "subtitle": "Bienvenue dans l'espace privé. Cette section regroupe les services internes et les outils développés pour un usage personnel. L'accès est sécurisé et réservé aux utilisateurs autorisés.",
+      "services": {
+        "access": "Accéder au service",
+        "cloud": "Nextcloud",
+        "desc_cloud": "Gestion de fichiers sécurisée",
+        "grafana": "Grafana",
+        "desc_grafana": "Supervision et métriques",
+        "sonarqube": "SonarQube",
+        "desc_sonarqube": "Analyse de qualité du code",
+        "actual-budget": "Actual Budget",
+        "desc_actual-budget": "Gestion de budgets",
+        "adguard": "AdGuard",
+        "desc_adguard": "Filtrage de publicités et de contenus",
+        "vikunja": "Vikunja",
+        "desc_vikunja": "Gestion de tâches et de projets",
+        "navidrome": "Navidrome",
+        "desc_navidrome": "Serveur de musique en streaming",
+        "authentik": "Authentik",
+        "desc_authentik": "Gestion des identités et des accès",
+        "vaultwarden": "Vaultwarden",
+        "desc_vaultwarden": "Gestion des mots de passe"
+      }
     }
   },
   "credits": {

@@ -14,6 +14,7 @@ import { ImpatiencePopup } from '@/components/useless/ImpatiencePopup.tsx';
 import { useMemo } from 'react';
 import { useThemeStore } from '@/store/useThemeStore.ts';
 import { HelmetProvider } from 'react-helmet-async';
+import { AuthProvider } from '@/components/private/AuthProvider.tsx';
 
 /**
  * The root component of the application.
@@ -39,7 +40,9 @@ function App() {
     <HelmetProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <RouterProvider router={router} />
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
         <ImpatiencePopup />
       </ThemeProvider>
     </HelmetProvider>

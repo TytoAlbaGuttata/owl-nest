@@ -10,6 +10,8 @@ import MainLayout from '@/layouts/MainLayout';
 import ErrorPage from '@/pages/ErrorPage.tsx';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
+import { PrivateLayout } from '@/layouts/PrivateLayout.tsx';
+import { Dashboard } from '@/pages/private/Dashboard.tsx';
 
 const Home = lazy(() => import('@/pages/Home'));
 const PublicTools = lazy(() => import('@/pages/tools/PublicTools.tsx'));
@@ -21,9 +23,6 @@ const UselessPage = lazy(() => import('@/pages/useless/UselessPage.tsx'));
 
 const AnonymizerPage = lazy(() =>
   import('@/pages/tools/AnonymizerPage.tsx').then((module) => ({ default: module.AnonymizerPage }))
-);
-const PrivatePage = lazy(() =>
-  import('@/pages/private/PrivatePage.tsx').then((module) => ({ default: module.PrivatePage }))
 );
 
 const PageLoader = () => (
@@ -81,8 +80,14 @@ export const router = createBrowserRouter([
         element: <Portfolio />,
       },
       {
-        path: 'private',
-        element: <PrivatePage />,
+        path: '/private',
+        element: <PrivateLayout />,
+        children: [
+          {
+            path: 'dashboard',
+            element: <Dashboard />,
+          },
+        ],
       },
       {
         path: 'credits',
